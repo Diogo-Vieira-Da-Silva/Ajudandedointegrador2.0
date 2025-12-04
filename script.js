@@ -1,5 +1,4 @@
-  // Função para inicializar o toggle da senha (somente se os elementos existirem)
-function initPasswordToggle() {
+ function initPasswordToggle() {
     const passwordField = document.getElementById('passwordField');
     const toggleButton = document.getElementById('togglePassword');
     const toggleText = document.getElementById('toggleText');
@@ -71,55 +70,33 @@ window.addEventListener('load', function () {
         e.preventDefault();
 
         if (!form.checkValidity()) {
-            alert('Preencha todos os campos obrigatórios.');
+            alert('Preencha o ID do enfermeiro.');
             return;
         }
 
-        if (!cpfEmailField) {
-            alert('Campo de CPF/E-mail não encontrado.');
-            return;
-        }
+        const nurseId = document.getElementById('nurseId').value.trim();
 
-        const value = cpfEmailField.value.trim();
-        const emailRegex = /^[a-zA-Z0-9]+@gmail\.com$/;
-        const cpfRegex = /^\d{11}$/;
-
-        if (!emailRegex.test(value) && !cpfRegex.test(value)) {
-            alert('CPF deve ter exatamente 11 números ou e-mail deve ser no formato usuario@gmail.com');
-            return;
-        }
-
-        const telefoneEl = document.getElementById('telefone');
-        const telefone = telefoneEl ? telefoneEl.value : '';
-        if (!/^\d{13}$/.test(telefone)) {
-            alert('Telefone deve ter exatamente 13 números.');
-            return;
-        }
-
-        // Coletar dados de forma defensiva
-        const getVal = id => {
-            const el = document.getElementById(id);
-            return el ? el.value : '';
-        };
-
-        const data = {
-            nome: getVal('nome'),
-            sobrenome: getVal('sobrenome'),
-            cpfEmail: value,
-            telefone: telefone,
-            senha: getVal('passwordField'),
-            sexo: getVal('sexo'),
-            dataContratacao: getVal('dataContratacao'),
-            dataNascimento: getVal('dataNascimento'),
-            diploma: getVal('diploma'),
-            cargo: getVal('cargo'),
-            complementos: getVal('complementos')
-        };
-
-        console.log(data);
-        localStorage.setItem('currentUser', JSON.stringify(data));
-        console.log('Dados salvos:', data);
-        window.location.href = 'm.html';
+        // Enviar ID para login
+        fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: nurseId })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Enfermeiro não encontrado');
+            }
+            return response.json();
+        })
+        .then(nurse => {
+            console.log('Login successful:', nurse);
+            localStorage.setItem('currentUser', JSON.stringify(nurse));
+            window.location.href = 'm.html';
+        })
+        .catch(error => {
+            console.error('Erro no login:', error);
+            alert('ID do enfermeiro não encontrado.');
+        });
     });
 })();
 

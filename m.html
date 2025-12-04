@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
@@ -8,6 +8,7 @@
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 
     <style>
         body {
@@ -71,9 +72,18 @@
     </div>
 
     <script>
+        let patients = [];
         const saved = JSON.parse(localStorage.getItem('currentUser'));
         if (saved && saved.nome) {
             document.getElementById('welcomeMessage').textContent = 'Bem vindo(a) ' + saved.nome;
+            // Load patients
+            fetch(`/pacientes/${saved.id}`)
+                .then(response => response.json())
+                .then(data => {
+                    patients = data;
+                    showInicio();
+                })
+                .catch(error => console.error('Erro ao carregar pacientes:', error));
         }
 
         function logout() {
@@ -83,43 +93,38 @@
 
         function showInicio() {
             document.getElementById('welcomeMessage').style.display = 'block';
-            const patients = JSON.parse(localStorage.getItem('patients')) || [];
             const patientCount = patients.length;
-            let pendingAlerts = 0;
-            patients.forEach(patient => {
-                if (patient.cares) {
-                    patient.cares.forEach(care => {
-                        if (care.status === "Pendente") {
-                            pendingAlerts++;
-                        }
-                    });
-                }
-            });
-            document.getElementById('contentArea').innerHTML = `
-                <img src="sensecare.jpg" class="img-fluid mb-4" style="max-width: 300px;">
-                <p class="text-center">Você tem ${patientCount} pacientes</p>
-                <div class="text-center mb-3">
-                    <button onclick="showPacientes()" class="btn btn-primary btn-custom">💚 Ver Pacientes</button>
-                </div>
-                <p class="text-center">Você tem ${pendingAlerts} alertas pendentes</p>
-                <div class="text-center">
-                    <button onclick="showPendingHistories()" class="btn btn-warning btn-custom">🔔 Ver Alertas Pendentes</button>
-                </div>
-            `;
-            document.getElementById('footerBtn').style.display = 'block';
+            // For pending alerts, fetch all cares for the nurse
+            fetch(`/cuidados/nurse/${saved.id}`)
+                .then(response => response.json())
+                .then(cares => {
+                    let pendingAlerts = cares.filter(care => care.status === "Pendente").length;
+                    document.getElementById('contentArea').innerHTML = `
+                        <img src="sensecare.jpg" class="img-fluid mb-4" style="max-width: 300px;">
+                        <p class="text-center">Você tem ${patientCount} pacientes</p>
+                        <div class="text-center mb-3">
+                            <button onclick="showPacientes()" class="btn btn-primary btn-custom">💚 Ver Pacientes</button>
+                        </div>
+                        <p class="text-center">Você tem ${pendingAlerts} alertas pendentes</p>
+                        <div class="text-center">
+                           <button onclick="showPendingHistories()" class="btn btn-success btn-custom">🔔 Ver Alertas Pendentes</button>
+                        </div>
+                    `;
+                    document.getElementById('footerBtn').style.display = 'block';
+                })
+                .catch(error => console.error('Erro ao carregar cuidados:', error));
         }
 
         function showPacientes() {
             document.getElementById('welcomeMessage').style.display = 'none';
             let html = '<h1 class="title mb-4">Pacientes</h1><button class="btn btn-primary btn-custom" data-bs-toggle="modal" data-bs-target="#addPatientModal">Adicionar Pacientes</button><h2 class="title mb-4">Lista de Pacientes</h2>';
-            const patients = JSON.parse(localStorage.getItem('patients')) || [];
             patients.forEach((patient, index) => {
                 html += `
                     <div class="text-center mb-5">
                         <div class="d-flex justify-content-center align-items-center mb-2">
                             <button onclick="showCare(${index})" class="btn btn-info btn-custom me-2">Cuidado</button>
-                            <button onclick="showPatientDetails(${index})" class="btn btn-outline-primary btn-custom me-2">${patient.primeiroNome} ${patient.sobrenome}</button>
-                            <button onclick="deletePatient(${index})" class="btn btn-danger btn-custom">Deletar</button>
+                            <button onclick="showPatientDetails(${index})" class="btn btn-outline-primary btn-custom me-2">${patient.primeiro_nome} ${patient.sobrenome}</button>
+                            <button onclick="deletePatient(${patient.id})" class="btn btn-danger btn-custom">Deletar</button>
                         </div>
                         <button onclick="showCareHistory(${index})" class="btn btn-warning btn-custom">Histórico</button>
                     </div>
@@ -130,18 +135,17 @@
         }
 
         function showPatientDetails(index) {
-            const patients = JSON.parse(localStorage.getItem('patients')) || [];
             const patient = patients[index];
             document.getElementById('contentArea').innerHTML = `
-                <h1 class="title mb-4">${patient.primeiroNome} ${patient.sobrenome}</h1>
-                <p><strong>Data de Nascimento:</strong> ${patient.dataNascimento}</p>
+                <h1 class="title mb-4">${patient.primeiro_nome} ${patient.sobrenome}</h1>
+                <p><strong>Data de Nascimento:</strong> ${patient.data_nascimento}</p>
                 <p><strong>CPF:</strong> ${patient.cpf}</p>
                 <p><strong>Endereço:</strong> ${patient.endereco}</p>
                 <p><strong>Telefone:</strong> ${patient.telefone}</p>
-                <p><strong>Nome do Responsável:</strong> ${patient.nomeResponsavel || 'N/A'}</p>
-                <p><strong>Telefone do Responsável:</strong> ${patient.telefoneResponsavel || 'N/A'}</p>
+                <p><strong>Nome do Responsável:</strong> ${patient.nome_responsavel || 'N/A'}</p>
+                <p><strong>Telefone do Responsável:</strong> ${patient.telefone_responsavel || 'N/A'}</p>
                 <p><strong>Procedimento:</strong> ${patient.procedimento}</p>
-                <p><strong>Histórico de Doenças:</strong> ${patient.historicoDoencas || 'N/A'}</p>
+                <p><strong>Histórico de Doenças:</strong> ${patient.historico_doencas || 'N/A'}</p>
                 <p><strong>Medicações:</strong> ${patient.medicacoes || 'N/A'}</p>
                 <p><strong>Sexo:</strong> ${patient.sexo}</p>
                 <p><strong>Prioridade:</strong> ${patient.prioridade}</p>
@@ -152,21 +156,29 @@
             `;
         }
 
-        function deletePatient(index) {
+        function deletePatient(id) {
             if (confirm('Tem certeza que deseja deletar este paciente?')) {
-                let patients = JSON.parse(localStorage.getItem('patients')) || [];
-                patients.splice(index, 1);
-                localStorage.setItem('patients', JSON.stringify(patients));
-                showPacientes();
+                fetch(`/pacientes/${id}`, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(result => {
+                        console.log('Paciente deletado:', result);
+                        // Reload patients
+                        fetch(`/pacientes/${saved.id}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                patients = data;
+                                showPacientes();
+                            });
+                    })
+                    .catch(error => console.error('Erro ao deletar paciente:', error));
             }
         }
 
         function showCare(index) {
-            const patients = JSON.parse(localStorage.getItem('patients')) || [];
             const patient = patients[index];
             document.getElementById('contentArea').innerHTML = `
-                <h1 class="title mb-4">Cuidados para ${patient.primeiroNome} ${patient.sobrenome}</h1>
-                <form id="careForm" onsubmit="saveCare(event, ${index})">
+                <h1 class="title mb-4">Cuidados para ${patient.primeiro_nome} ${patient.sobrenome}</h1>
+                <form id="careForm" onsubmit="saveCare(event, ${patient.id})">
                     <div class="mb-3">
                         <label>Tipos de Cuidado:</label><br>
                         <input type="checkbox" id="medicacao" name="cuidado" value="Medicação"> Medicação<br>
@@ -195,112 +207,130 @@
             `;
         }
 
-        function saveCare(event, index) {
+        function saveCare(event, pacienteId) {
             event.preventDefault();
-            const cuidados = Array.from(document.querySelectorAll('input[name="cuidado"]:checked')).map(cb => cb.value);
+            const cuidados = Array.from(document.querySelectorAll('input[name="cuidado"]:checked')).map(cb => cb.value).join(', ');
             const observacoes = document.getElementById('observacoes').value;
             const dataCuidado = document.getElementById('dataCuidado').value;
             const horarioCuidado = document.getElementById('horarioCuidado').value;
-            const care = {
+            const careData = {
+                paciente_id: pacienteId,
+                nurse_id: saved.id,
                 cuidados: cuidados,
                 observacoes: observacoes,
-                data: dataCuidado,
+                data_cuidado: dataCuidado,
                 horario: horarioCuidado,
                 status: "Pendente"
             };
-            let patients = JSON.parse(localStorage.getItem('patients')) || [];
-            if (!patients[index].cares) patients[index].cares = [];
-            patients[index].cares.push(care);
-            localStorage.setItem('patients', JSON.stringify(patients));
-            alert('Cuidado salvo com sucesso!');
-            showPacientes();
+            fetch('/cuidados', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(careData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Cuidado adicionado:', result);
+                alert('Cuidado salvo com sucesso!');
+                showPacientes();
+            })
+            .catch(error => console.error('Erro ao salvar cuidado:', error));
         }
 
         function showPendingHistories() {
-            let patients = JSON.parse(localStorage.getItem('patients')) || [];
-            let updated = false;
-            patients.forEach(patient => {
-                if (patient.cares) {
-                    patient.cares.forEach(care => {
-                        if (!care.status) {
-                            care.status = "Pendente";
-                            updated = true;
+            fetch(`/cuidados/nurse/${saved.id}`)
+                .then(response => response.json())
+                .then(cares => {
+                    let historyHtml = '<h1 class="title mb-4">Cuidados Pendentes</h1>';
+                    let hasCares = false;
+                    // Group cares by patient
+                    const caresByPatient = {};
+                    cares.forEach(care => {
+                        if (!caresByPatient[care.paciente_id]) {
+                            caresByPatient[care.paciente_id] = [];
+                        }
+                        caresByPatient[care.paciente_id].push(care);
+                    });
+                    patients.forEach(patient => {
+                        const patientCares = caresByPatient[patient.id] || [];
+                        if (patientCares.length > 0) {
+                            historyHtml += `<h3>${patient.primeiro_nome} ${patient.sobrenome}</h3>`;
+                            patientCares.forEach(care => {
+                                const statusClass = care.status === "Concluído" ? "text-success" : "text-danger";
+                                historyHtml += `
+                                    <div class="card mb-3">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Cuidado - ${care.data_cuidado} ${care.horario}</h5>
+                                            <p><strong>Tipos:</strong> ${care.cuidados}</p>
+                                            <p><strong>Observações:</strong> ${care.observacoes || 'Nenhuma'}</p>
+                                            <div class="d-flex align-items-center">
+                                                <input type="checkbox" onchange="toggleStatus(${care.id})" ${care.status === "Concluído" ? "checked" : ""} class="me-2">
+                                                <span id="status-${care.id}" class="${statusClass}">${care.status}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                hasCares = true;
+                            });
                         }
                     });
-                }
-            });
-            if (updated) {
-                localStorage.setItem('patients', JSON.stringify(patients));
-            }
-            let historyHtml = '<h1 class="title mb-4">Cuidados Pendentes</h1>';
-            let hasCares = false;
-            patients.forEach((patient, pIndex) => {
-                if (patient.cares && patient.cares.length > 0) {
-                    historyHtml += `<h3>${patient.primeiroNome} ${patient.sobrenome}</h3>`;
-                    patient.cares.forEach((care, cIndex) => {
-                        const statusClass = care.status === "Concluído" ? "text-success" : "text-danger";
-                        historyHtml += `
-                            <div class="card mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">Cuidado - ${care.data} ${care.horario}</h5>
-                                    <p><strong>Tipos:</strong> ${care.cuidados.join(', ')}</p>
-                                    <p><strong>Observações:</strong> ${care.observacoes || 'Nenhuma'}</p>
-                                    <div class="d-flex align-items-center">
-                                        <input type="checkbox" onchange="toggleStatus(${pIndex}, ${cIndex})" ${care.status === "Concluído" ? "checked" : ""} class="me-2">
-                                        <span id="status-${pIndex}-${cIndex}" class="${statusClass}">${care.status}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                        hasCares = true;
-                    });
-                }
-            });
-            if (!hasCares) {
-                historyHtml += '<p>Nenhum cuidado registrado ainda.</p>';
-            }
-            historyHtml += '<button onclick="showInicio()" class="btn btn-secondary btn-custom">Voltar</button>';
-            document.getElementById('welcomeMessage').style.display = 'none';
-            document.getElementById('contentArea').innerHTML = historyHtml;
-            document.getElementById('footerBtn').style.display = 'none';
+                    if (!hasCares) {
+                        historyHtml += '<p>Nenhum cuidado registrado ainda.</p>';
+                    }
+                    historyHtml += '<button onclick="showInicio()" class="btn btn-secondary btn-custom">Voltar</button>';
+                    document.getElementById('welcomeMessage').style.display = 'none';
+                    document.getElementById('contentArea').innerHTML = historyHtml;
+                    document.getElementById('footerBtn').style.display = 'none';
+                })
+                .catch(error => console.error('Erro ao carregar cuidados:', error));
         }
 
-        function toggleStatus(pIndex, cIndex) {
-            let patients = JSON.parse(localStorage.getItem('patients')) || [];
-            const care = patients[pIndex].cares[cIndex];
-            care.status = care.status === "Pendente" ? "Concluído" : "Pendente";
-            localStorage.setItem('patients', JSON.stringify(patients));
-            const span = document.getElementById(`status-${pIndex}-${cIndex}`);
-            span.textContent = care.status;
-            span.className = care.status === "Concluído" ? "text-success" : "text-danger";
+        function toggleStatus(careId) {
+            const newStatus = document.querySelector(`input[onchange="toggleStatus(${careId})"]`).checked ? "Concluído" : "Pendente";
+            fetch(`/cuidados/${careId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Status atualizado:', result);
+                const span = document.getElementById(`status-${careId}`);
+                span.textContent = newStatus;
+                span.className = newStatus === "Concluído" ? "text-success" : "text-danger";
+            })
+            .catch(error => console.error('Erro ao atualizar status:', error));
         }
 
         function showCareHistory(index) {
-            const patients = JSON.parse(localStorage.getItem('patients')) || [];
             const patient = patients[index];
-            let historyHtml = `<h1 class="title mb-4">Histórico de Cuidados para ${patient.primeiroNome} ${patient.sobrenome}</h1>`;
-            if (patient.cares && patient.cares.length > 0) {
-                patient.cares.forEach((care, i) => {
-                    historyHtml += `
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <h5 class="card-title">Cuidado ${i + 1} - ${care.data} ${care.horario}</h5>
-                                <p><strong>Tipos:</strong> ${care.cuidados.join(', ')}</p>
-                                <p><strong>Observações:</strong> ${care.observacoes || 'Nenhuma'}</p>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                historyHtml += '<p>Nenhum cuidado registrado ainda.</p>';
-            }
-            historyHtml += '<button onclick="showPacientes()" class="btn btn-secondary btn-custom">Voltar</button>';
-            document.getElementById('contentArea').innerHTML = historyHtml;
+            let historyHtml = `<h1 class="title mb-4">Histórico de Cuidados para ${patient.primeiro_nome} ${patient.sobrenome}</h1>`;
+            fetch(`/cuidados/paciente/${patient.id}`)
+                .then(response => response.json())
+                .then(cares => {
+                    if (cares.length > 0) {
+                        cares.forEach((care, i) => {
+                            historyHtml += `
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Cuidado ${i + 1} - ${care.data_cuidado} ${care.horario}</h5>
+                                        <p><strong>Tipos:</strong> ${care.cuidados}</p>
+                                        <p><strong>Observações:</strong> ${care.observacoes || 'Nenhuma'}</p>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        historyHtml += '<p>Nenhum cuidado registrado ainda.</p>';
+                    }
+                    historyHtml += '<button onclick="showPacientes()" class="btn btn-secondary btn-custom">Voltar</button>';
+                    document.getElementById('contentArea').innerHTML = historyHtml;
+                })
+                .catch(error => console.error('Erro ao carregar histórico:', error));
         }
 
         function showPulseira() {
             document.getElementById('welcomeMessage').style.display = 'none';
-            document.getElementById('contentArea').innerHTML = '<button onclick="showAlertas()" class="btn btn-primary btn-custom">Conectar</button>';
+            document.getElementById('contentArea').innerHTML = '<button onclick="showAlertas()" class="btn btn-success btn-custom">Conectar</button>';
             document.getElementById('footerBtn').style.display = 'none';
         }
 
@@ -311,6 +341,7 @@
                 return;
             }
             const patient = {
+                nurse_id: saved.id,
                 primeiroNome: document.getElementById('primeiroNome').value,
                 sobrenome: document.getElementById('sobrenome').value,
                 dataNascimento: document.getElementById('dataNascimento').value,
@@ -328,13 +359,31 @@
                 alergias: document.getElementById('alergias').value,
                 especificacoes: document.getElementById('especificacoes').value
             };
-            let patients = JSON.parse(localStorage.getItem('patients')) || [];
-            patients.push(patient);
-            localStorage.setItem('patients', JSON.stringify(patients));
-            form.reset();
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addPatientModal'));
-            modal.hide();
-            showPacientes(); // refresh the list
+
+            // Enviar dados para o servidor
+            fetch('/pacientes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(patient)
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Paciente adicionado:', result);
+                // Reload patients
+                fetch(`/pacientes/${saved.id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        patients = data;
+                        form.reset();
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('addPatientModal'));
+                        modal.hide();
+                        showPacientes(); // refresh the list
+                    });
+            })
+            .catch(error => {
+                console.error('Erro ao adicionar paciente:', error);
+                alert('Erro ao salvar paciente.');
+            });
         }
 
         function recordAlert(type, description) {
@@ -511,6 +560,6 @@
             </div>
         </div>
     </div>
-
+<script src="m.js"></script>
 </body>
 </html>
